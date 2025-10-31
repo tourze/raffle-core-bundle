@@ -1,0 +1,13 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    Tourze\RaffleCoreBundle\Controller\:
+        resource: '../../Controller/'
+    Tourze\RaffleCoreBundle\Repository\:
+        resource: '../../Repository/'
+    Tourze\RaffleCoreBundle\Service\:
+        resource: '../../Service/'
+    Tourze\RaffleCoreBundle\EventSubscriber\:
+        resource: '../../EventSubscriber/'

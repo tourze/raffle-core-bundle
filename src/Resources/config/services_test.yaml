@@ -1,0 +1,12 @@
+services:
+  # default configuration for services in *this* file
+  _defaults:
+    autowire: true      # Automatically injects dependencies in your services.
+    autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+    public: true
+
+  # Test-specific services can be added here
+  # For example: Mock services, Test fixtures, etc.
+
+  Tourze\RaffleCoreBundle\DataFixtures\:
+    resource: '../../DataFixtures/'
