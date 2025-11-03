@@ -11,6 +11,7 @@ use Tourze\BundleDependency\BundleDependencyInterface;
 use Tourze\DoctrineIndexedBundle\DoctrineIndexedBundle;
 use Tourze\DoctrineSnowflakeBundle\DoctrineSnowflakeBundle;
 use Tourze\DoctrineTimestampBundle\DoctrineTimestampBundle;
+use Tourze\EasyAdminMenuBundle\EasyAdminMenuBundle;
 use Tourze\ProductCoreBundle\ProductCoreBundle;
 use Tourze\StockManageBundle\StockManageBundle;
 
@@ -28,6 +29,7 @@ class RaffleCoreBundle extends Bundle implements BundleDependencyInterface
             DoctrineSnowflakeBundle::class => ['all' => true],
             DoctrineTimestampBundle::class => ['all' => true],
             DoctrineIndexedBundle::class => ['all' => true],
+            EasyAdminMenuBundle::class => ['all' => true],
         ];
     }
 }
