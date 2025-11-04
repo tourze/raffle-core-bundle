@@ -31,8 +31,8 @@
     "tourze/easy-admin-menu-bundle": "1.0.*",
     "tourze/enum-extra": "1.0.*",
     "tourze/order-core-bundle": "0.0.*",
-    "tourze/product-core-bundle": "0.0.*",
-    "tourze/stock-manage-bundle": "0.0.*",
+    "tourze/product-core-bundle": "1.0.*",
+    "tourze/stock-manage-bundle": "1.0.*",
     "tourze/symfony-dependency-service-loader": "1.0.*",
     "tourze/user-service-contracts": "1.*"
   },
