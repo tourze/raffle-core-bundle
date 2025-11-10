@@ -34,7 +34,7 @@
     "tourze/product-core-bundle": "1.0.*",
     "tourze/stock-manage-bundle": "1.0.*",
     "tourze/symfony-dependency-service-loader": "1.0.*",
-    "tourze/user-service-contracts": "1.*"
+    "tourze/user-service-contracts": "1.1.*"
   },
   "require-dev": {
     "doctrine/data-fixtures": "^2.0",
