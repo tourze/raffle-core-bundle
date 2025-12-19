@@ -12,7 +12,7 @@ use Tourze\RaffleCoreBundle\Entity\Activity;
 
 #[When(env: 'test')]
 #[When(env: 'dev')]
-class ActivityFixtures extends Fixture
+final class ActivityFixtures extends Fixture
 {
     public const ACTIVITY_ACTIVE = 'activity_active';
     public const ACTIVITY_UPCOMING = 'activity_upcoming';

@@ -15,7 +15,7 @@ use Tourze\RaffleCoreBundle\Exception\ChanceAlreadyUsedException;
 use Tourze\RaffleCoreBundle\Repository\AwardRepository;
 use Tourze\RaffleCoreBundle\Repository\ChanceRepository;
 
-readonly class RaffleService
+final readonly class RaffleService
 {
     public function __construct(
         private EntityManagerInterface $entityManager,

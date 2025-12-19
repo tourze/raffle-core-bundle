@@ -12,7 +12,7 @@ use Tourze\RaffleCoreBundle\Entity\Chance;
 use Tourze\RaffleCoreBundle\Exception\ActivityInactiveException;
 
 #[Autoconfigure(public: true)]
-readonly class LotteryFlowService
+final readonly class LotteryFlowService
 {
     public function __construct(
         private EntityManagerInterface $entityManager,

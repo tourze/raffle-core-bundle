@@ -69,20 +69,10 @@ final class AwardCrudController extends AbstractCrudController
      */
     public function configureFields(string $pageName): iterable
     {
-        // 布局字段仅在表单页面显示
-        if (Crud::PAGE_NEW === $pageName || Crud::PAGE_EDIT === $pageName) {
-            yield FormField::addColumn(6);
-            yield FormField::addFieldset('基本信息');
-        }
-
+        // ID 字段
         yield IdField::new('id', 'ID')->hideOnForm();
         yield TextField::new('name', '奖品名称')->setMaxLength(255);
         yield TextareaField::new('description', '奖品描述')->hideOnIndex();
-
-        if (Crud::PAGE_NEW === $pageName || Crud::PAGE_EDIT === $pageName) {
-            yield FormField::addColumn(6);
-            yield FormField::addFieldset('关联信息');
-        }
 
         yield AssociationField::new('pool', '所属奖池')
             ->setRequired(true)
@@ -92,36 +82,18 @@ final class AwardCrudController extends AbstractCrudController
             ->setRequired(true)
             ->autocomplete()
         ;
-
-        if (Crud::PAGE_NEW === $pageName || Crud::PAGE_EDIT === $pageName) {
-            yield FormField::addColumn(12);
-            yield FormField::addFieldset('奖品配置');
-
-            yield FormField::addColumn(3);
-        }
-
         yield IntegerField::new('probability', '概率权重')
             ->setHelp('数值越大，中奖概率越高')
         ;
         yield IntegerField::new('quantity', '库存数量')
             ->setHelp('总共可派发的数量')
         ;
-
-        if (Crud::PAGE_NEW === $pageName || Crud::PAGE_EDIT === $pageName) {
-            yield FormField::addColumn(3);
-        }
-
         yield IntegerField::new('dayLimit', '每日限制')
             ->setHelp('每日最多派发数量，不填则不限制')
         ;
         yield IntegerField::new('amount', '单次数量')
             ->setHelp('单次中奖派发的数量')
         ;
-
-        if (Crud::PAGE_NEW === $pageName || Crud::PAGE_EDIT === $pageName) {
-            yield FormField::addColumn(3);
-        }
-
         yield MoneyField::new('value', '奖品价值')
             ->setCurrency('CNY')
             ->setStoredAsCents(false)
@@ -129,12 +101,6 @@ final class AwardCrudController extends AbstractCrudController
         yield IntegerField::new('sortNumber', '排序号')
             ->setHelp('数值越小，排序越靠前')
         ;
-
-        if (Crud::PAGE_NEW === $pageName || Crud::PAGE_EDIT === $pageName) {
-            yield FormField::addColumn(3);
-            yield FormField::addFieldset('状态选项');
-        }
-
         yield BooleanField::new('needConsignee', '需要收货地址');
         yield BooleanField::new('valid', '启用状态');
 

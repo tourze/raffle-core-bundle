@@ -22,6 +22,17 @@ final class ActivityCrudControllerTest extends AbstractEasyAdminControllerTestCa
         return self::getService(ActivityCrudController::class);
     }
 
+    protected function afterEasyAdminSetUp(): void
+    {
+        // 创建上传目录，避免测试时出现 "Invalid upload directory" 错误
+        // 获取测试内核的项目目录
+        $projectDir = static::$kernel->getProjectDir();
+        $uploadDir = $projectDir . '/public/uploads/images';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0o777, true);
+        }
+    }
+
     /**
      * @return iterable<string, array{string}>
      */

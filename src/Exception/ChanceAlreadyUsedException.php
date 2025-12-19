@@ -4,6 +4,6 @@ declare(strict_types=1);
 
 namespace Tourze\RaffleCoreBundle\Exception;
 
-class ChanceAlreadyUsedException extends \RuntimeException
+final class ChanceAlreadyUsedException extends \RuntimeException
 {
 }

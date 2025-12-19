@@ -140,12 +140,14 @@ final class ChanceCrudController extends AbstractCrudController
             ->setHelp('如果中奖，显示中奖的奖品信息')
         ;
 
-        yield TextareaField::new('winContext', '中奖上下文')
-            ->hideOnIndex()
-            ->hideOnForm()
-            ->setRequired(false)
-            ->setHelp('中奖时的相关信息（JSON格式）')
-        ;
+        // winContext 字段包含 JSON 数据，不适合在 EasyAdmin 中直接显示
+      // 只在需要调试时启用
+      // yield TextareaField::new('winContext', '中奖上下文')
+      //     ->hideOnIndex()
+      //     ->hideOnDetail()
+      //     ->setRequired(false)
+      //     ->setHelp('中奖时的相关信息（JSON格式）')
+      // ;
     }
 
     /**
@@ -154,28 +156,23 @@ final class ChanceCrudController extends AbstractCrudController
     private function getAuditFields(string $pageName): iterable
     {
         yield IntegerField::new('lockVersion', '版本号')
-            ->hideOnForm()
             ->hideOnIndex()
             ->setHelp('乐观锁版本号')
         ;
 
         yield TextField::new('createdBy', '创建人')
-            ->hideOnForm()
             ->hideOnIndex()
         ;
 
         yield TextField::new('updatedBy', '更新人')
-            ->hideOnForm()
             ->hideOnIndex()
         ;
 
         yield DateTimeField::new('createTime', '创建时间')
-            ->hideOnForm()
             ->setFormat('yyyy-MM-dd HH:mm:ss')
         ;
 
         yield DateTimeField::new('updateTime', '更新时间')
-            ->hideOnForm()
             ->hideOnIndex()
             ->setFormat('yyyy-MM-dd HH:mm:ss')
         ;

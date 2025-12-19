@@ -195,17 +195,17 @@ final class ChanceRepositoryTest extends AbstractRepositoryTestCase
         $chance1 = $this->createValidChance();
         $chance1->setUser($user1);
         $chance1->setActivity($activity);
-        $chance1->setCreateTime(new \DateTimeImmutable('2024-01-01 10:00:00'));
+        $chance1->setCreateTime(new CarbonImmutable('2024-01-01 10:00:00'));
 
         $chance2 = $this->createValidChance();
         $chance2->setUser($user2);
         $chance2->setActivity($activity);
-        $chance2->setCreateTime(new \DateTimeImmutable('2024-01-01 11:00:00'));
+        $chance2->setCreateTime(new CarbonImmutable('2024-01-01 11:00:00'));
 
         $chance3 = $this->createValidChance();
         $chance3->setUser($user1);
         $chance3->setActivity($activity);
-        $chance3->setCreateTime(new \DateTimeImmutable('2024-01-01 12:00:00'));
+        $chance3->setCreateTime(new CarbonImmutable('2024-01-01 12:00:00'));
 
         $repository = $this->getRepository();
         $repository->save($chance1, true);

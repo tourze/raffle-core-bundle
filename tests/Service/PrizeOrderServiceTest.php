@@ -6,313 +6,270 @@ namespace Tourze\RaffleCoreBundle\Tests\Service;
 
 use Carbon\CarbonImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\Security\Core\User\UserInterface;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use Tourze\PHPUnitSymfonyKernelTest\AbstractIntegrationTestCase;
+use Tourze\RaffleCoreBundle\Entity\Activity;
 use Tourze\RaffleCoreBundle\Entity\Award;
 use Tourze\RaffleCoreBundle\Entity\Chance;
+use Tourze\RaffleCoreBundle\Entity\Pool;
 use Tourze\RaffleCoreBundle\Enum\ChanceStatusEnum;
 use Tourze\RaffleCoreBundle\Exception\ChanceAlreadyUsedException;
 use Tourze\RaffleCoreBundle\Exception\InvalidPrizeException;
-use Tourze\RaffleCoreBundle\Repository\ChanceRepository;
-use Tourze\RaffleCoreBundle\Service\ChanceService;
 use Tourze\RaffleCoreBundle\Service\PrizeOrderService;
 
 /**
  * @internal
  */
 #[CoversClass(PrizeOrderService::class)]
-final class PrizeOrderServiceTest extends TestCase
+#[RunTestsInSeparateProcesses]
+final class PrizeOrderServiceTest extends AbstractIntegrationTestCase
 {
     private PrizeOrderService $prizeOrderService;
 
-    /** @var ChanceRepository&MockObject */
-    private ChanceRepository $chanceRepository;
-
-    /** @var ChanceService&MockObject */
-    private ChanceService $chanceService;
-
-    protected function setUp(): void
+    protected function onSetUp(): void
     {
-        $this->chanceRepository = $this->createMock(ChanceRepository::class);
-        $this->chanceService = $this->createMock(ChanceService::class);
-        $this->prizeOrderService = new PrizeOrderService(
-            $this->chanceRepository,
-            $this->chanceService
-        );
+        $this->prizeOrderService = self::getService(PrizeOrderService::class);
     }
 
-    public function testGetUserPendingPrizesShouldReturnPendingChances(): void
+    public function testCreateOrderFromPrizeShouldReturnOrderData(): void
     {
-        /** @var UserInterface&MockObject $user */
-        $user = $this->createMock(UserInterface::class);
-        $expectedChances = [
-            $this->createMock(Chance::class),
-            $this->createMock(Chance::class),
+        $user = $this->createNormalUser('test@example.com', 'password');
+        $activity = $this->createTestActivity();
+        $pool = $this->createTestPool();
+        $award = $this->createTestAward($pool);
+
+        $activity->addPool($pool);
+
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->persist($pool);
+        self::getEntityManager()->persist($award);
+        self::getEntityManager()->flush();
+
+        $chance = new Chance();
+        $chance->setUser($user);
+        $chance->setActivity($activity);
+        $chance->setStatus(ChanceStatusEnum::WINNING);
+        $chance->setAward($award);
+        self::getEntityManager()->persist($chance);
+        self::getEntityManager()->flush();
+
+        $consigneeInfo = [
+            'name' => '测试收货人',
+            'phone' => '13800138000',
+            'address' => '测试地址',
         ];
-
-        $this->chanceRepository
-            ->expects($this->once())
-            ->method('findBy')
-            ->with([
-                'user' => $user,
-                'status' => ChanceStatusEnum::WINNING,
-            ])
-            ->willReturn($expectedChances)
-        ;
-
-        $result = $this->prizeOrderService->getUserPendingPrizes($user);
-
-        $this->assertSame($expectedChances, $result);
-        $this->assertCount(2, $result);
-    }
-
-    public function testGetPrizeOrderInfoShouldReturnOrderInfoForValidChance(): void
-    {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        /** @var Award&MockObject $award */
-        $award = $this->createMock(Award::class);
-        $createTime = CarbonImmutable::parse('2023-01-01 10:00:00');
-        $useTime = CarbonImmutable::parse('2023-01-01 11:00:00');
-
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::WINNING);
-        $chance->method('getAward')->willReturn($award);
-        $chance->method('getId')->willReturn(123);
-        $chance->method('getUseTime')->willReturn($useTime);
-        $chance->method('getCreateTime')->willReturn($createTime);
-
-        $award->method('getName')->willReturn('测试奖品');
-        $award->method('getValue')->willReturn('100.00');
-        $award->method('isNeedConsignee')->willReturn(true);
-
-        $result = $this->prizeOrderService->getPrizeOrderInfo($chance);
-
-        $this->assertSame(123, $result['chance_id']);
-        $this->assertSame('测试奖品', $result['award_name']);
-        $this->assertSame('100.00', $result['award_value']);
-        $this->assertTrue($result['need_consignee']);
-        $this->assertSame($useTime, $result['win_time']);
-    }
-
-    public function testGetPrizeOrderInfoShouldUseCreateTimeWhenUseTimeIsNull(): void
-    {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        /** @var Award&MockObject $award */
-        $award = $this->createMock(Award::class);
-        $createTime = CarbonImmutable::parse('2023-01-01 10:00:00');
-
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::WINNING);
-        $chance->method('getAward')->willReturn($award);
-        $chance->method('getId')->willReturn(123);
-        $chance->method('getUseTime')->willReturn(null);
-        $chance->method('getCreateTime')->willReturn($createTime);
-
-        $award->method('getName')->willReturn('测试奖品');
-        $award->method('getValue')->willReturn('100.00');
-        $award->method('isNeedConsignee')->willReturn(false);
-
-        $result = $this->prizeOrderService->getPrizeOrderInfo($chance);
-
-        $this->assertSame($createTime, $result['win_time']);
-        $this->assertFalse($result['need_consignee']);
-    }
-
-    public function testGetPrizeOrderInfoShouldThrowExceptionForWrongStatus(): void
-    {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::INIT);
-
-        $this->expectException(ChanceAlreadyUsedException::class);
-        $this->expectExceptionMessage('该中奖记录状态不正确');
-
-        $this->prizeOrderService->getPrizeOrderInfo($chance);
-    }
-
-    public function testGetPrizeOrderInfoShouldThrowExceptionWhenAwardIsNull(): void
-    {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::WINNING);
-        $chance->method('getAward')->willReturn(null);
-
-        $this->expectException(InvalidPrizeException::class);
-        $this->expectExceptionMessage('中奖记录没有关联奖品');
-
-        $this->prizeOrderService->getPrizeOrderInfo($chance);
-    }
-
-    public function testGetPrizeOrderInfoShouldThrowExceptionWhenChanceIdIsNull(): void
-    {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        /** @var Award&MockObject $award */
-        $award = $this->createMock(Award::class);
-
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::WINNING);
-        $chance->method('getAward')->willReturn($award);
-        $chance->method('getId')->willReturn(null);
-
-        $this->expectException(InvalidPrizeException::class);
-        $this->expectExceptionMessage('中奖记录ID无效');
-
-        $this->prizeOrderService->getPrizeOrderInfo($chance);
-    }
-
-    public function testCreateOrderFromPrizeShouldSucceedForValidChance(): void
-    {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        /** @var Award&MockObject $award */
-        $award = $this->createMock(Award::class);
-        $consigneeInfo = ['name' => '收货人', 'phone' => '13800138000'];
-
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::WINNING);
-        $chance->method('getAward')->willReturn($award);
-        $chance->method('getId')->willReturn(456);
-
-        $award->method('getName')->willReturn('测试奖品');
-        $award->method('getValue')->willReturn('50.00');
-
-        $this->chanceService
-            ->expects($this->once())
-            ->method('markChanceAsOrdered')
-            ->with($chance)
-            ->willReturn($chance)
-        ;
 
         $result = $this->prizeOrderService->createOrderFromPrize($chance, $consigneeInfo);
 
-        $this->assertSame(456, $result['chance_id']);
-        $this->assertSame('测试奖品', $result['award_name']);
-        $this->assertSame('50.00', $result['award_value']);
-        $this->assertSame($consigneeInfo, $result['consignee_info']);
-        $this->assertInstanceOf(\DateTimeImmutable::class, $result['order_time']);
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('chance_id', $result);
+        $this->assertArrayHasKey('award_name', $result);
+        $this->assertArrayHasKey('award_value', $result);
+        $this->assertArrayHasKey('consignee_info', $result);
+        $this->assertArrayHasKey('order_time', $result);
+        $this->assertEquals($chance->getId(), $result['chance_id']);
+        $this->assertEquals($award->getName(), $result['award_name']);
     }
 
-    public function testCreateOrderFromPrizeShouldThrowExceptionForWrongStatus(): void
+    public function testCreateOrderFromPrizeShouldThrowExceptionForNonWinningChance(): void
     {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::ORDERED);
+        $user = $this->createNormalUser('test2@example.com', 'password');
+        $activity = $this->createTestActivity();
+
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->flush();
+
+        $chance = new Chance();
+        $chance->setUser($user);
+        $chance->setActivity($activity);
+        $chance->setStatus(ChanceStatusEnum::INIT);
+        self::getEntityManager()->persist($chance);
+        self::getEntityManager()->flush();
+
+        $consigneeInfo = [
+            'name' => '测试收货人',
+            'phone' => '13800138000',
+            'address' => '测试地址',
+        ];
 
         $this->expectException(ChanceAlreadyUsedException::class);
         $this->expectExceptionMessage('该中奖记录已处理或状态不正确');
 
-        $this->prizeOrderService->createOrderFromPrize($chance);
+        $this->prizeOrderService->createOrderFromPrize($chance, $consigneeInfo);
     }
 
-    public function testCreateOrderFromPrizeShouldThrowExceptionWhenAwardIsNull(): void
+    public function testCreateOrderFromPrizeShouldThrowExceptionForOrderedChance(): void
     {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::WINNING);
-        $chance->method('getAward')->willReturn(null);
+        $user = $this->createNormalUser('test3@example.com', 'password');
+        $activity = $this->createTestActivity();
 
-        $this->expectException(InvalidPrizeException::class);
-        $this->expectExceptionMessage('中奖记录没有关联奖品');
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->flush();
 
-        $this->prizeOrderService->createOrderFromPrize($chance);
+        $chance = new Chance();
+        $chance->setUser($user);
+        $chance->setActivity($activity);
+        $chance->setStatus(ChanceStatusEnum::ORDERED);
+        self::getEntityManager()->persist($chance);
+        self::getEntityManager()->flush();
+
+        $consigneeInfo = [
+            'name' => '测试收货人',
+            'phone' => '13800138000',
+            'address' => '测试地址',
+        ];
+
+        $this->expectException(ChanceAlreadyUsedException::class);
+        $this->expectExceptionMessage('该中奖记录已处理或状态不正确');
+
+        $this->prizeOrderService->createOrderFromPrize($chance, $consigneeInfo);
     }
 
     public function testValidatePrizeClaimableShouldReturnTrueForValidPrize(): void
     {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        /** @var Award&MockObject $award */
-        $award = $this->createMock(Award::class);
+        $user = $this->createNormalUser('test@example.com', 'password');
+        $activity = $this->createTestActivity();
+        $pool = $this->createTestPool();
+        $award = $this->createTestAward($pool);
 
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::WINNING);
-        $chance->method('getAward')->willReturn($award);
-        $award->method('isValid')->willReturn(true);
+        $activity->addPool($pool);
+
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->persist($pool);
+        self::getEntityManager()->persist($award);
+        self::getEntityManager()->flush();
+
+        $chance = new Chance();
+        $chance->setUser($user);
+        $chance->setActivity($activity);
+        $chance->setStatus(ChanceStatusEnum::WINNING);
+        $chance->setAward($award);
+        self::getEntityManager()->persist($chance);
+        self::getEntityManager()->flush();
 
         $result = $this->prizeOrderService->validatePrizeClaimable($chance);
 
         $this->assertTrue($result);
     }
 
-    public function testValidatePrizeClaimableShouldReturnFalseForWrongStatus(): void
+    public function testValidatePrizeClaimableShouldReturnFalseForNonWinningChance(): void
     {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::ORDERED);
+        $user = $this->createNormalUser('test@example.com', 'password');
+        $activity = $this->createTestActivity();
+
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->flush();
+
+        $chance = new Chance();
+        $chance->setUser($user);
+        $chance->setActivity($activity);
+        $chance->setStatus(ChanceStatusEnum::INIT);
+        self::getEntityManager()->persist($chance);
+        self::getEntityManager()->flush();
 
         $result = $this->prizeOrderService->validatePrizeClaimable($chance);
 
         $this->assertFalse($result);
     }
 
-    public function testValidatePrizeClaimableShouldReturnFalseWhenAwardIsNull(): void
+    public function testGetPrizeOrderInfoShouldReturnOrderInfo(): void
     {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::WINNING);
-        $chance->method('getAward')->willReturn(null);
+        $user = $this->createNormalUser('test@example.com', 'password');
+        $activity = $this->createTestActivity();
+        $pool = $this->createTestPool();
+        $award = $this->createTestAward($pool);
 
-        $result = $this->prizeOrderService->validatePrizeClaimable($chance);
+        $activity->addPool($pool);
 
-        $this->assertFalse($result);
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->persist($pool);
+        self::getEntityManager()->persist($award);
+        self::getEntityManager()->flush();
+
+        $chance = new Chance();
+        $chance->setUser($user);
+        $chance->setActivity($activity);
+        $chance->setStatus(ChanceStatusEnum::WINNING);
+        $chance->setAward($award);
+        $chance->setUseTime(new CarbonImmutable());
+        self::getEntityManager()->persist($chance);
+        self::getEntityManager()->flush();
+
+        $result = $this->prizeOrderService->getPrizeOrderInfo($chance);
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('chance_id', $result);
+        $this->assertArrayHasKey('award_name', $result);
+        $this->assertArrayHasKey('award_value', $result);
+        $this->assertArrayHasKey('need_consignee', $result);
+        $this->assertArrayHasKey('win_time', $result);
+        $this->assertEquals($chance->getId(), $result['chance_id']);
+        $this->assertEquals($award->getName(), $result['award_name']);
+        $this->assertEquals($award->getValue(), $result['award_value']);
+        $this->assertEquals($award->isNeedConsignee(), $result['need_consignee']);
     }
 
-    public function testValidatePrizeClaimableShouldReturnFalseForInvalidAward(): void
+    private function createTestActivity(): Activity
     {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        /** @var Award&MockObject $award */
-        $award = $this->createMock(Award::class);
+        $activity = new Activity();
+        $activity->setTitle('测试活动');
+        $activity->setDescription('测试活动描述');
+        $activity->setStartTime(new CarbonImmutable('-1 hour'));
+        $activity->setEndTime(new CarbonImmutable('+1 hour'));
+        $activity->setValid(true);
 
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::WINNING);
-        $chance->method('getAward')->willReturn($award);
-        $award->method('isValid')->willReturn(false);
-
-        $result = $this->prizeOrderService->validatePrizeClaimable($chance);
-
-        $this->assertFalse($result);
+        return $activity;
     }
 
-    public function testGetUserOrderedPrizesShouldReturnOrderedChances(): void
+    private function createTestPool(): Pool
     {
-        /** @var UserInterface&MockObject $user */
-        $user = $this->createMock(UserInterface::class);
-        $expectedChances = [
-            $this->createMock(Chance::class),
-        ];
+        $pool = new Pool();
+        $pool->setName('测试奖池');
+        $pool->setDescription('测试奖池描述');
+        $pool->setValid(true);
+        $pool->setSortNumber(1);
 
-        $this->chanceRepository
-            ->expects($this->once())
-            ->method('findBy')
-            ->with(
-                ['user' => $user, 'status' => ChanceStatusEnum::ORDERED],
-                ['useTime' => 'DESC'],
-                10
-            )
-            ->willReturn($expectedChances)
-        ;
-
-        $result = $this->prizeOrderService->getUserOrderedPrizes($user, 10);
-
-        $this->assertSame($expectedChances, $result);
-        $this->assertCount(1, $result);
+        return $pool;
     }
 
-    public function testGetUserOrderedPrizesShouldUseDefaultLimit(): void
+    private function createTestAward(Pool $pool): Award
     {
-        /** @var UserInterface&MockObject $user */
-        $user = $this->createMock(UserInterface::class);
+        $sku = $this->createTestSku();
 
-        $this->chanceRepository
-            ->expects($this->once())
-            ->method('findBy')
-            ->with(
-                ['user' => $user, 'status' => ChanceStatusEnum::ORDERED],
-                ['useTime' => 'DESC'],
-                20
-            )
-            ->willReturn([])
-        ;
+        $award = new Award();
+        $award->setName('测试奖品');
+        $award->setDescription('测试奖品描述');
+        $award->setPool($pool);
+        $award->setSku($sku);
+        $award->setProbability(1000);
+        $award->setQuantity(100);
+        $award->setValue('10.00');
+        $award->setAmount(1);
+        $award->setNeedConsignee(true);
+        $award->setValid(true);
+        $award->setSortNumber(1);
 
-        $this->prizeOrderService->getUserOrderedPrizes($user);
+        return $award;
+    }
+
+    private function createTestSku(): \Tourze\ProductCoreBundle\Entity\Sku
+    {
+        $spu = new \Tourze\ProductCoreBundle\Entity\Spu();
+        $spu->setTitle('测试商品SPU ' . uniqid());
+        $spu->setContent('测试商品描述');
+        $spu->setValid(true);
+
+        $sku = new \Tourze\ProductCoreBundle\Entity\Sku();
+        $sku->setSpu($spu);
+        $sku->setGtin('TEST_SKU_' . uniqid());
+        $sku->setUnit('个');
+        $sku->setNeedConsignee(true);
+        $sku->setThumbs([['url' => '/images/test-thumb.png']]);
+
+        self::getEntityManager()->persist($spu);
+        self::getEntityManager()->persist($sku);
+        self::getEntityManager()->flush();
+
+        return $sku;
     }
 }

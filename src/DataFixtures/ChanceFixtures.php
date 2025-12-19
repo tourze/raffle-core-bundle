@@ -17,7 +17,7 @@ use Tourze\UserServiceContracts\UserManagerInterface;
 
 #[When(env: 'test')]
 #[When(env: 'dev')]
-class ChanceFixtures extends Fixture implements DependentFixtureInterface
+final class ChanceFixtures extends Fixture implements DependentFixtureInterface
 {
     public function __construct(
         private readonly UserManagerInterface $userManager,

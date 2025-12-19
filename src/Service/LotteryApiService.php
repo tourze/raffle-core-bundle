@@ -9,7 +9,7 @@ use Tourze\RaffleCoreBundle\Entity\Activity;
 use Tourze\RaffleCoreBundle\Entity\Award;
 use Tourze\RaffleCoreBundle\Entity\Chance;
 
-readonly class LotteryApiService
+final readonly class LotteryApiService
 {
     public function __construct(
         private ActivityService $activityService,

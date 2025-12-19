@@ -58,101 +58,67 @@ final class PoolCrudController extends AbstractCrudController
 
     public function configureFields(string $pageName): iterable
     {
-        // 布局字段仅在表单页面显示
-        if (Crud::PAGE_NEW === $pageName || Crud::PAGE_EDIT === $pageName) {
-            yield FormField::addColumn(6);
-            yield FormField::addFieldset('基本信息');
-        }
-
         yield IdField::new('id', 'ID')->hideOnForm();
         yield TextField::new('name', '奖池名称')
             ->setRequired(true)
             ->setHelp('奖池的名称')
         ;
-
-        if (Crud::PAGE_NEW === $pageName || Crud::PAGE_EDIT === $pageName) {
-            yield FormField::addColumn(6);
-        }
-
         yield TextareaField::new('description', '奖池描述')
             ->setRequired(false)
             ->hideOnIndex()
             ->setHelp('奖池的详细描述')
         ;
-
-        if (Crud::PAGE_NEW === $pageName || Crud::PAGE_EDIT === $pageName) {
-            yield FormField::addColumn(12);
-            yield FormField::addFieldset('配置设置');
-
-            yield FormField::addColumn(6);
-        }
-
         yield AssociationField::new('activities', '关联活动')
             ->setRequired(false)
             ->hideOnIndex()
             ->setHelp('使用此奖池的活动')
         ;
-
-        if (Crud::PAGE_NEW === $pageName || Crud::PAGE_EDIT === $pageName) {
-            yield FormField::addColumn(6);
-        }
-
         yield IntegerField::new('sortNumber', '排序值')
             ->hideOnIndex()
             ->setHelp('值越小排序越靠前')
             ->setRequired(false)
         ;
-
-        if (Crud::PAGE_NEW === $pageName || Crud::PAGE_EDIT === $pageName) {
-            yield FormField::addColumn(12);
-            yield FormField::addFieldset('状态选项');
-
-            yield FormField::addColumn(4);
-        }
-
         yield BooleanField::new('isDefault', '兜底奖池')
             ->renderAsSwitch(true)
             ->setHelp('如果用户没有中任何其他奖品，将会使用此兜底奖池')
         ;
-
-        if (Crud::PAGE_NEW === $pageName || Crud::PAGE_EDIT === $pageName) {
-            yield FormField::addColumn(4);
-        }
-
         yield BooleanField::new('valid', '是否启用')
             ->renderAsSwitch(true)
         ;
-
-        if (Crud::PAGE_NEW === $pageName || Crud::PAGE_EDIT === $pageName) {
-            yield FormField::addColumn(4);
-        }
-
         yield AssociationField::new('awards', '包含奖品')
             ->setRequired(false)
             ->hideOnIndex()
-            ->hideOnForm()
             ->setHelp('此奖池中的所有奖品')
         ;
-
-        if (Crud::PAGE_INDEX === $pageName) {
-            yield DateTimeField::new('createTime', '创建时间')->hideOnForm();
-            yield DateTimeField::new('updateTime', '更新时间')->hideOnForm();
-        }
+        yield MoneyField::new('totalValue', '奖品总价值')
+            ->setCurrency('CNY')
+            ->setStoredAsCents(false)
+            ->hideOnForm()
+        ;
+        yield IntegerField::new('awardCount', '奖品数量')
+            ->hideOnForm()
+        ;
+        yield DateTimeField::new('createTime', '创建时间')->hideOnForm();
+        yield DateTimeField::new('updateTime', '更新时间')->hideOnForm();
     }
 
     public function configureActions(Actions $actions): Actions
     {
         return $actions
             ->add(Crud::PAGE_INDEX, Action::DETAIL)
-            ->add(Crud::PAGE_EDIT, Action::DETAIL)
+            ->setPermission(Action::NEW, 'ROLE_ADMIN')
+            ->setPermission(Action::EDIT, 'ROLE_ADMIN')
+            ->setPermission(Action::DELETE, 'ROLE_ADMIN')
         ;
     }
 
     public function configureFilters(Filters $filters): Filters
     {
         return $filters
-            ->add(BooleanFilter::new('isDefault', '兜底奖池'))
+            ->add(EntityFilter::new('activities', '关联活动'))
             ->add(BooleanFilter::new('valid', '是否启用'))
+            ->add(BooleanFilter::new('isDefault', '是否兜底'))
+            ->add(NumericFilter::new('sortNumber', '排序值'))
         ;
     }
 }

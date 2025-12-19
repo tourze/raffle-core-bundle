@@ -11,7 +11,7 @@ use Tourze\RaffleCoreBundle\Exception\ChanceAlreadyUsedException;
 use Tourze\RaffleCoreBundle\Exception\InvalidPrizeException;
 use Tourze\RaffleCoreBundle\Repository\ChanceRepository;
 
-readonly class PrizeOrderService
+final readonly class PrizeOrderService
 {
     public function __construct(
         private ChanceRepository $chanceRepository,

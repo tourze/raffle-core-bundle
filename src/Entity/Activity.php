@@ -77,7 +77,7 @@ class Activity implements \Stringable
     /**
      * @var Collection<int, Pool>
      */
-    #[ORM\ManyToMany(targetEntity: Pool::class, inversedBy: 'activities')]
+    #[ORM\ManyToMany(targetEntity: Pool::class, inversedBy: 'activities', cascade: ['persist'])]
     #[ORM\JoinTable(
         name: 'raffle_activity_pool',
         joinColumns: [new ORM\JoinColumn(name: 'activity_id', referencedColumnName: 'id')],

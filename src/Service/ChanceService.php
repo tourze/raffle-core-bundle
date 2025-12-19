@@ -12,7 +12,7 @@ use Tourze\RaffleCoreBundle\Enum\ChanceStatusEnum;
 use Tourze\RaffleCoreBundle\Exception\ChanceAlreadyUsedException;
 use Tourze\RaffleCoreBundle\Repository\ChanceRepository;
 
-readonly class ChanceService
+final readonly class ChanceService
 {
     public function __construct(
         private ChanceRepository $chanceRepository,

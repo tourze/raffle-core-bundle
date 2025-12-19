@@ -4,6 +4,6 @@ declare(strict_types=1);
 
 namespace Tourze\RaffleCoreBundle\Exception;
 
-class InvalidPrizeException extends \RuntimeException
+final class InvalidPrizeException extends \RuntimeException
 {
 }

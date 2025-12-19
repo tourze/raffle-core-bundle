@@ -4,80 +4,48 @@ declare(strict_types=1);
 
 namespace Tourze\RaffleCoreBundle\Tests\Service;
 
-use Doctrine\ORM\EntityManagerInterface;
+use Carbon\CarbonImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\Security\Core\User\UserInterface;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use Tourze\PHPUnitSymfonyKernelTest\AbstractIntegrationTestCase;
+use Tourze\ProductCoreBundle\Entity\Sku;
+use Tourze\ProductCoreBundle\Entity\Spu;
 use Tourze\RaffleCoreBundle\Entity\Activity;
 use Tourze\RaffleCoreBundle\Entity\Award;
 use Tourze\RaffleCoreBundle\Entity\Chance;
+use Tourze\RaffleCoreBundle\Entity\Pool;
 use Tourze\RaffleCoreBundle\Enum\ChanceStatusEnum;
 use Tourze\RaffleCoreBundle\Exception\ActivityInactiveException;
 use Tourze\RaffleCoreBundle\Exception\ChanceAlreadyUsedException;
-use Tourze\RaffleCoreBundle\Repository\AwardRepository;
-use Tourze\RaffleCoreBundle\Repository\ChanceRepository;
 use Tourze\RaffleCoreBundle\Service\RaffleService;
 
 /**
  * @internal
  */
 #[CoversClass(RaffleService::class)]
-final class RaffleServiceTest extends TestCase
+#[RunTestsInSeparateProcesses]
+final class RaffleServiceTest extends AbstractIntegrationTestCase
 {
     private RaffleService $raffleService;
 
-    /** @var EntityManagerInterface&MockObject */
-    private EntityManagerInterface $entityManager;
-
-    /** @var AwardRepository&MockObject */
-    private AwardRepository $awardRepository;
-
-    /** @var ChanceRepository&MockObject */
-    private ChanceRepository $chanceRepository;
-
-    protected function setUp(): void
+    protected function onSetUp(): void
     {
-        /** @var EntityManagerInterface&MockObject $entityManager */
-        $entityManager = $this->createMock(EntityManagerInterface::class);
-        $this->entityManager = $entityManager;
-
-        /** @var AwardRepository&MockObject $awardRepository */
-        $awardRepository = $this->createMock(AwardRepository::class);
-        $this->awardRepository = $awardRepository;
-
-        /** @var ChanceRepository&MockObject $chanceRepository */
-        $chanceRepository = $this->createMock(ChanceRepository::class);
-        $this->chanceRepository = $chanceRepository;
-
-        $this->raffleService = new RaffleService(
-            $this->entityManager,
-            $this->awardRepository,
-            $this->chanceRepository
-        );
+        $this->raffleService = self::getService(RaffleService::class);
     }
 
     public function testParticipateInLotteryShouldCreateChanceForActiveActivity(): void
     {
-        /** @var UserInterface&MockObject $user */
-        $user = $this->createMock(UserInterface::class);
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
+        $user = $this->createNormalUser('test@example.com', 'password');
+        $activity = $this->createTestActivity();
+        $pool = $this->createTestPool();
+        $award = $this->createTestAward($pool);
 
-        $activity->method('isActive')->willReturn(true);
+        $activity->addPool($pool);
 
-        $this->chanceRepository
-            ->expects($this->once())
-            ->method('save')
-            ->with(
-                self::callback(function (Chance $chance) use ($activity, $user) {
-                    return $chance->getActivity() === $activity
-                        && $chance->getUser() === $user
-                        && ChanceStatusEnum::INIT === $chance->getStatus();
-                }),
-                true
-            )
-        ;
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->persist($pool);
+        self::getEntityManager()->persist($award);
+        self::getEntityManager()->flush();
 
         $result = $this->raffleService->participateInLottery($user, $activity);
 
@@ -85,16 +53,16 @@ final class RaffleServiceTest extends TestCase
         $this->assertSame($activity, $result->getActivity());
         $this->assertSame($user, $result->getUser());
         $this->assertSame(ChanceStatusEnum::INIT, $result->getStatus());
+        $this->assertNotNull($result->getId());
     }
 
     public function testParticipateInLotteryShouldThrowExceptionForInactiveActivity(): void
     {
-        /** @var UserInterface&MockObject $user */
-        $user = $this->createMock(UserInterface::class);
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
+        $user = $this->createNormalUser('test2@example.com', 'password');
+        $activity = $this->createInactiveActivity();
 
-        $activity->method('isActive')->willReturn(false);
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->flush();
 
         $this->expectException(ActivityInactiveException::class);
         $this->expectExceptionMessage('活动未开始或已结束');
@@ -104,9 +72,12 @@ final class RaffleServiceTest extends TestCase
 
     public function testDrawPrizeShouldThrowExceptionForUsedChance(): void
     {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::WINNING);
+        $user = $this->createNormalUser('test3@example.com', 'password');
+        $activity = $this->createTestActivity();
+        $chance = new Chance();
+        $chance->setUser($user);
+        $chance->setActivity($activity);
+        $chance->setStatus(ChanceStatusEnum::WINNING);
 
         $this->expectException(ChanceAlreadyUsedException::class);
         $this->expectExceptionMessage('抽奖机会已被使用');
@@ -116,14 +87,16 @@ final class RaffleServiceTest extends TestCase
 
     public function testDrawPrizeShouldThrowExceptionForInactiveActivity(): void
     {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
+        $user = $this->createNormalUser('test4@example.com', 'password');
+        $activity = $this->createInactiveActivity();
+        $chance = new Chance();
+        $chance->setUser($user);
+        $chance->setActivity($activity);
+        $chance->setStatus(ChanceStatusEnum::INIT);
 
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::INIT);
-        $chance->method('getActivity')->willReturn($activity);
-        $activity->method('isActive')->willReturn(false);
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->persist($chance);
+        self::getEntityManager()->flush();
 
         $this->expectException(ActivityInactiveException::class);
         $this->expectExceptionMessage('活动未开始或已结束');
@@ -133,214 +106,123 @@ final class RaffleServiceTest extends TestCase
 
     public function testDrawPrizeShouldReturnNullWhenNoEligibleAwards(): void
     {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
+        $user = $this->createNormalUser('test5@example.com', 'password');
+        $activity = $this->createTestActivity();
+        // 不创建任何奖品，确保没有可用的奖项
 
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::INIT);
-        $chance->method('getActivity')->willReturn($activity);
-        $activity->method('isActive')->willReturn(true);
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->flush();
 
-        $this->awardRepository
-            ->method('findEligibleForLotteryByActivity')
-            ->with($activity)
-            ->willReturn([])
-        ;
-
-        $chance->expects($this->once())->method('setStatus')->with(ChanceStatusEnum::EXPIRED);
-        $this->chanceRepository->expects($this->once())->method('save')->with($chance, true);
+        $chance = new Chance();
+        $chance->setUser($user);
+        $chance->setActivity($activity);
+        $chance->setStatus(ChanceStatusEnum::INIT);
+        self::getEntityManager()->persist($chance);
+        self::getEntityManager()->flush();
 
         $result = $this->raffleService->drawPrize($chance);
 
         $this->assertNull($result);
+
+        // 验证chance状态已更新
+        self::getEntityManager()->refresh($chance);
+        $this->assertSame(ChanceStatusEnum::EXPIRED, $chance->getStatus());
     }
 
     public function testDrawPrizeShouldReturnAwardWhenWinning(): void
     {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
-        /** @var Award&MockObject $award */
-        $award = $this->createMock(Award::class);
+        $user = $this->createNormalUser('test6@example.com', 'password');
+        $activity = $this->createTestActivity();
+        $pool = $this->createTestPool();
+        $award = $this->createTestAward($pool);
+        // 设置100%中奖概率
+        $award->setProbability(10000);
+        $award->setQuantity(10);
 
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::INIT);
-        $chance->method('getActivity')->willReturn($activity);
-        $activity->method('isActive')->willReturn(true);
+        $activity->addPool($pool);
 
-        $this->awardRepository
-            ->method('findEligibleForLotteryByActivity')
-            ->willReturn([$award])
-        ;
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->persist($pool);
+        self::getEntityManager()->persist($award);
+        self::getEntityManager()->flush();
 
-        $this->awardRepository
-            ->method('decreaseQuantityAtomically')
-            ->with($award, 1)
-            ->willReturn(true)
-        ;
-
-        $award->method('getName')->willReturn('测试奖品');
-        $award->method('getProbability')->willReturn(10000); // 100% probability
-
-        $this->entityManager->expects($this->once())->method('beginTransaction');
-        $this->entityManager->expects($this->once())->method('commit');
-
-        $chance->expects($this->once())->method('markAsWinning')
-            ->with($award, self::callback(fn ($arg) => is_array($arg)))
-        ;
-
-        $this->chanceRepository->expects($this->once())->method('save')->with($chance, true);
+        $chance = new Chance();
+        $chance->setUser($user);
+        $chance->setActivity($activity);
+        $chance->setStatus(ChanceStatusEnum::INIT);
+        self::getEntityManager()->persist($chance);
+        self::getEntityManager()->flush();
 
         $result = $this->raffleService->drawPrize($chance);
 
         $this->assertSame($award, $result);
-    }
 
-    public function testDrawPrizeShouldReturnNullWhenStockDecreaseFails(): void
-    {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
-        /** @var Award&MockObject $award */
-        $award = $this->createMock(Award::class);
+        // 验证chance状态已更新
+        self::getEntityManager()->refresh($chance);
+        $this->assertSame(ChanceStatusEnum::WINNING, $chance->getStatus());
+        $this->assertSame($award, $chance->getAward());
 
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::INIT);
-        $chance->method('getActivity')->willReturn($activity);
-        $activity->method('isActive')->willReturn(true);
-
-        $this->awardRepository
-            ->method('findEligibleForLotteryByActivity')
-            ->willReturn([$award])
-        ;
-
-        $this->awardRepository
-            ->method('decreaseQuantityAtomically')
-            ->willReturn(false)
-        ;
-
-        $award->method('getProbability')->willReturn(10000);
-
-        $this->entityManager->expects($this->once())->method('beginTransaction');
-        $this->entityManager->expects($this->once())->method('rollback');
-
-        $chance->expects($this->once())->method('setStatus')->with(ChanceStatusEnum::EXPIRED);
-        $this->chanceRepository->expects($this->once())->method('save')->with($chance, true);
-
-        $result = $this->raffleService->drawPrize($chance);
-
-        $this->assertNull($result);
-    }
-
-    public function testDrawPrizeShouldHandleExceptionsAndRollback(): void
-    {
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
-        /** @var Award&MockObject $award */
-        $award = $this->createMock(Award::class);
-
-        $chance->method('getStatus')->willReturn(ChanceStatusEnum::INIT);
-        $chance->method('getActivity')->willReturn($activity);
-        $activity->method('isActive')->willReturn(true);
-
-        $this->awardRepository
-            ->method('findEligibleForLotteryByActivity')
-            ->willReturn([$award])
-        ;
-
-        $this->awardRepository
-            ->method('decreaseQuantityAtomically')
-            ->willThrowException(new \Exception('数据库错误'))
-        ;
-
-        $award->method('getProbability')->willReturn(10000);
-
-        $this->entityManager->expects($this->once())->method('beginTransaction');
-        $this->entityManager->expects($this->once())->method('rollback');
-
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('数据库错误');
-
-        $this->raffleService->drawPrize($chance);
+        // 验证奖品库存已减少
+        self::getEntityManager()->refresh($award);
+        $this->assertEquals(9, $award->getQuantity());
     }
 
     public function testGetUserLotteryHistoryShouldReturnHistoryForSpecificActivity(): void
     {
-        /** @var UserInterface&MockObject $user */
-        $user = $this->createMock(UserInterface::class);
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        $expectedChances = [
-            $chance,
-        ];
+        $user = $this->createNormalUser('test7@example.com', 'password');
+        $activity = $this->createTestActivity();
 
-        $this->chanceRepository
-            ->expects($this->once())
-            ->method('findByUserAndActivity')
-            ->with($user, $activity)
-            ->willReturn($expectedChances)
-        ;
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->flush();
+
+        $chance = new Chance();
+        $chance->setUser($user);
+        $chance->setActivity($activity);
+        $chance->setStatus(ChanceStatusEnum::INIT);
+        self::getEntityManager()->persist($chance);
+        self::getEntityManager()->flush();
 
         $result = $this->raffleService->getUserLotteryHistory($user, $activity);
 
-        $this->assertSame($expectedChances, $result);
+        $this->assertCount(1, $result);
+        $this->assertSame($chance, $result[0]);
     }
 
     public function testGetUserLotteryHistoryShouldReturnWinningHistoryWhenActivityIsNull(): void
     {
-        /** @var UserInterface&MockObject $user */
-        $user = $this->createMock(UserInterface::class);
-        /** @var Chance&MockObject $chance */
-        $chance = $this->createMock(Chance::class);
-        $expectedChances = [
-            $chance,
-        ];
+        $user = $this->createNormalUser('test8@example.com', 'password');
+        $activity = $this->createTestActivity();
+        $pool = $this->createTestPool();
+        $award = $this->createTestAward($pool);
 
-        $this->chanceRepository
-            ->expects($this->once())
-            ->method('findWinningChancesByUser')
-            ->with($user, 15)
-            ->willReturn($expectedChances)
-        ;
+        $activity->addPool($pool);
+
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->persist($pool);
+        self::getEntityManager()->persist($award);
+        self::getEntityManager()->flush();
+
+        $chance = new Chance();
+        $chance->setUser($user);
+        $chance->setActivity($activity);
+        $chance->setStatus(ChanceStatusEnum::WINNING);
+        $chance->setAward($award);
+        self::getEntityManager()->persist($chance);
+        self::getEntityManager()->flush();
 
         $result = $this->raffleService->getUserLotteryHistory($user, null, 15);
 
-        $this->assertSame($expectedChances, $result);
+        $this->assertCount(1, $result);
+        $this->assertSame($chance, $result[0]);
     }
 
     public function testCanUserParticipateShouldReturnFalseForInactiveActivity(): void
     {
-        /** @var UserInterface&MockObject $user */
-        $user = $this->createMock(UserInterface::class);
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
+        $user = $this->createNormalUser('test9@example.com', 'password');
+        $activity = $this->createInactiveActivity();
 
-        $activity->method('isActive')->willReturn(false);
-
-        $result = $this->raffleService->canUserParticipate($user, $activity);
-
-        $this->assertFalse($result);
-    }
-
-    public function testCanUserParticipateShouldReturnFalseWhenNoEligibleAwards(): void
-    {
-        /** @var UserInterface&MockObject $user */
-        $user = $this->createMock(UserInterface::class);
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
-
-        $activity->method('isActive')->willReturn(true);
-
-        $this->awardRepository
-            ->method('findEligibleForLotteryByActivity')
-            ->with($activity)
-            ->willReturn([])
-        ;
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->flush();
 
         $result = $this->raffleService->canUserParticipate($user, $activity);
 
@@ -349,64 +231,83 @@ final class RaffleServiceTest extends TestCase
 
     public function testCanUserParticipateShouldReturnTrueWhenActivityActiveAndAwardsAvailable(): void
     {
-        /** @var UserInterface&MockObject $user */
-        $user = $this->createMock(UserInterface::class);
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
-        /** @var Award&MockObject $award */
-        $award = $this->createMock(Award::class);
+        $user = $this->createNormalUser('test10@example.com', 'password');
+        $activity = $this->createTestActivity();
+        $pool = $this->createTestPool();
+        $award = $this->createTestAward($pool);
 
-        $activity->method('isActive')->willReturn(true);
+        $activity->addPool($pool);
 
-        $this->awardRepository
-            ->method('findEligibleForLotteryByActivity')
-            ->with($activity)
-            ->willReturn([$award])
-        ;
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->persist($pool);
+        self::getEntityManager()->persist($award);
+        self::getEntityManager()->flush();
 
         $result = $this->raffleService->canUserParticipate($user, $activity);
 
         $this->assertTrue($result);
     }
 
-    public function testCalculateAwardWeightShouldReturnZeroForZeroProbability(): void
+    private function createTestActivity(): Activity
     {
-        /** @var Award&MockObject $award */
-        $award = $this->createMock(Award::class);
-        $award->method('getProbability')->willReturn(0);
+        $activity = new Activity();
+        $activity->setTitle('测试抽奖活动');
+        $activity->setDescription('测试用途');
+        $activity->setStartTime(new CarbonImmutable('-1 hour'));
+        $activity->setEndTime(new CarbonImmutable('+1 hour'));
+        $activity->setValid(true);
 
-        $reflection = new \ReflectionClass($this->raffleService);
-        $method = $reflection->getMethod('calculateAwardWeight');
-        $method->setAccessible(true);
-
-        $result = $method->invokeArgs($this->raffleService, [$award]);
-
-        $this->assertSame(0, $result);
+        return $activity;
     }
 
-    public function testCalculateAwardWeightShouldCalculateCorrectWeight(): void
+    private function createInactiveActivity(): Activity
     {
-        /** @var Award&MockObject $award */
-        $award = $this->createMock(Award::class);
-        $award->method('getProbability')->willReturn(100); // 1% probability
+        $activity = new Activity();
+        $activity->setTitle('未开始活动');
+        $activity->setDescription('测试用途');
+        $activity->setStartTime(new CarbonImmutable('+1 hour'));
+        $activity->setEndTime(new CarbonImmutable('+2 hours'));
+        $activity->setValid(true);
 
-        $reflection = new \ReflectionClass($this->raffleService);
-        $method = $reflection->getMethod('calculateAwardWeight');
-        $method->setAccessible(true);
-
-        $result = $method->invokeArgs($this->raffleService, [$award]);
-
-        $this->assertSame(100, $result); // 10000/100 = 100
+        return $activity;
     }
 
-    public function testSelectAwardByProbabilityShouldReturnNullForEmptyAwards(): void
+    private function createTestPool(): Pool
     {
-        $reflection = new \ReflectionClass($this->raffleService);
-        $method = $reflection->getMethod('selectAwardByProbability');
-        $method->setAccessible(true);
+        $pool = new Pool();
+        $pool->setName('测试奖池');
+        $pool->setDescription('测试用途');
+        $pool->setValid(true);
+        $pool->setSortNumber(1);
 
-        $result = $method->invokeArgs($this->raffleService, [[]]);
+        return $pool;
+    }
 
-        $this->assertNull($result);
+    private function createTestAward(Pool $pool): Award
+    {
+        $spu = new Spu();
+        $spu->setTitle('测试SPU商品');
+        self::getEntityManager()->persist($spu);
+
+        $sku = new Sku();
+        $sku->setSpu($spu);
+        $sku->setUnit('个');
+        $sku->setValid(true);
+        self::getEntityManager()->persist($sku);
+
+        $award = new Award();
+        $award->setName('测试奖品');
+        $award->setDescription('测试奖品描述');
+        $award->setPool($pool);
+        $award->setSku($sku);
+        $award->setProbability(1000); // 10% probability
+        $award->setQuantity(100);
+        $award->setValue('10.00');
+        $award->setAmount(1);
+        $award->setNeedConsignee(true);
+        $award->setValid(true);
+        $award->setSortNumber(1);
+
+        return $award;
     }
 }

@@ -216,6 +216,8 @@ final class PoolCrudControllerTest extends AbstractEasyAdminControllerTestCase
         yield '奖池名称' => ['奖池名称'];
         yield '兜底奖池' => ['兜底奖池'];
         yield '是否启用' => ['是否启用'];
+        yield '奖品总价值' => ['奖品总价值'];
+        yield '奖品数量' => ['奖品数量'];
         yield '创建时间' => ['创建时间'];
         yield '更新时间' => ['更新时间'];
     }

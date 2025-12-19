@@ -17,7 +17,7 @@ use Tourze\RaffleCoreBundle\Controller\Admin\PoolCrudController;
  * 抽奖管理菜单提供者
  */
 #[Autoconfigure(public: true)]
-readonly class RaffleMenuProvider implements MenuProviderInterface
+final readonly class RaffleMenuProvider implements MenuProviderInterface
 {
     public function __construct(
         private LinkGeneratorInterface $linkGenerator,

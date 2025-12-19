@@ -38,9 +38,14 @@ final class RequestFileCleanSubscriberTest extends AbstractEventSubscriberTestCa
         $tempFilePath = tempnam(sys_get_temp_dir(), 'test');
         $this->assertFileExists($tempFilePath);
 
-        // 创建UploadedFile对象
-        $uploadedFile = $this->createMock(UploadedFile::class);
-        $uploadedFile->method('getPathname')->willReturn($tempFilePath);
+        // 创建真实的UploadedFile对象
+        $uploadedFile = new UploadedFile(
+            $tempFilePath,
+            'test.txt',
+            'text/plain',
+            null,
+            true // test mode
+        );
 
         // 创建Request对象
         $request = new Request();
@@ -105,11 +110,17 @@ final class RequestFileCleanSubscriberTest extends AbstractEventSubscriberTestCa
     public function testOnTerminatedWithNonExistentFile(): void
     {
         // 创建一个不存在的文件路径
-        $nonExistentPath = sys_get_temp_dir() . '/non_existent_' . uniqid();
+        $nonExistentPath = sys_get_temp_dir() . '/test' . uniqid() . '_non_existent';
 
-        // 创建UploadedFile对象
+        // 确保文件不存在
+        if (file_exists($nonExistentPath)) {
+            unlink($nonExistentPath);
+        }
+
+        // 创建一个mock的UploadedFile对象，模拟不存在的文件
         $uploadedFile = $this->createMock(UploadedFile::class);
         $uploadedFile->method('getPathname')->willReturn($nonExistentPath);
+        $uploadedFile->method('getRealPath')->willReturn($nonExistentPath);
 
         // 创建Request对象
         $request = new Request();
@@ -118,7 +129,7 @@ final class RequestFileCleanSubscriberTest extends AbstractEventSubscriberTestCa
         // 创建Response对象
         $response = new Response();
 
-        // 创建TerminateEvent对象
+        // 创建TerminateEvent对象 - 使用简单的mock，只期望不调用任何方法
         $kernel = $this->createMock(HttpKernelInterface::class);
         $event = new TerminateEvent($kernel, $request, $response);
 
@@ -159,12 +170,22 @@ final class RequestFileCleanSubscriberTest extends AbstractEventSubscriberTestCa
         $this->assertFileExists($tempFilePath1);
         $this->assertFileExists($tempFilePath2);
 
-        // 创建UploadedFile对象
-        $uploadedFile1 = $this->createMock(UploadedFile::class);
-        $uploadedFile1->method('getPathname')->willReturn($tempFilePath1);
+        // 创建真实的UploadedFile对象
+        $uploadedFile1 = new UploadedFile(
+            $tempFilePath1,
+            'test1.txt',
+            'text/plain',
+            null,
+            true // test mode
+        );
 
-        $uploadedFile2 = $this->createMock(UploadedFile::class);
-        $uploadedFile2->method('getPathname')->willReturn($tempFilePath2);
+        $uploadedFile2 = new UploadedFile(
+            $tempFilePath2,
+            'test2.txt',
+            'text/plain',
+            null,
+            true // test mode
+        );
 
         // 创建Request对象
         $request = new Request();
@@ -197,9 +218,14 @@ final class RequestFileCleanSubscriberTest extends AbstractEventSubscriberTestCa
         $this->assertFileExists($tempFilePath1);
         $this->assertFileExists($tempFilePath2);
 
-        // 创建UploadedFile对象
-        $uploadedFile = $this->createMock(UploadedFile::class);
-        $uploadedFile->method('getPathname')->willReturn($tempFilePath1);
+        // 创建真实的UploadedFile对象
+        $uploadedFile = new UploadedFile(
+            $tempFilePath1,
+            'test1.txt',
+            'text/plain',
+            null,
+            true // test mode
+        );
 
         // 创建Request对象和FileBag
         $request = new Request();

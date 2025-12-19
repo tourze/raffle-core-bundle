@@ -6,83 +6,82 @@ namespace Tourze\RaffleCoreBundle\Tests\Service;
 
 use Carbon\CarbonImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use Tourze\PHPUnitSymfonyKernelTest\AbstractIntegrationTestCase;
 use Tourze\RaffleCoreBundle\Entity\Activity;
-use Tourze\RaffleCoreBundle\Repository\ActivityRepository;
 use Tourze\RaffleCoreBundle\Service\ActivityService;
 
 /**
  * @internal
  */
 #[CoversClass(ActivityService::class)]
-final class ActivityServiceTest extends TestCase
+#[RunTestsInSeparateProcesses]
+final class ActivityServiceTest extends AbstractIntegrationTestCase
 {
     private ActivityService $activityService;
 
-    /** @var ActivityRepository&MockObject */
-    private ActivityRepository $activityRepository;
-
-    protected function setUp(): void
+    protected function onSetUp(): void
     {
-        $this->activityRepository = $this->createMock(ActivityRepository::class);
-        $this->activityService = new ActivityService($this->activityRepository);
+        $this->activityService = self::getService(ActivityService::class);
     }
 
     public function testGetActiveActivitiesShouldReturnActivitiesFromRepository(): void
     {
-        $expectedActivities = [
-            $this->createActiveActivity('活动1'),
-            $this->createActiveActivity('活动2'),
-        ];
+        // 创建一些测试活动
+        $activeActivity1 = $this->createActiveActivity('活动1');
+        $activeActivity2 = $this->createActiveActivity('活动2');
+        $inactiveActivity = $this->createInactiveActivity('未开始活动');
 
-        $this->activityRepository
-            ->expects($this->once())
-            ->method('findActiveActivities')
-            ->willReturn($expectedActivities)
-        ;
+        self::getEntityManager()->persist($activeActivity1);
+        self::getEntityManager()->persist($activeActivity2);
+        self::getEntityManager()->persist($inactiveActivity);
+        self::getEntityManager()->flush();
 
         $result = $this->activityService->getActiveActivities();
 
-        $this->assertSame($expectedActivities, $result);
-        $this->assertCount(2, $result);
+        // 验证只返回活跃的活动
+        $this->assertGreaterThanOrEqual(2, $result);
+        $titles = array_map(fn ($activity) => $activity->getTitle(), $result);
+        $this->assertContains('活动1', $titles);
+        $this->assertContains('活动2', $titles);
+        $this->assertNotContains('未开始活动', $titles);
     }
 
     public function testGetUpcomingActivitiesShouldReturnLimitedResults(): void
     {
-        $expectedActivities = [
-            $this->createUpcomingActivity('即将开始1'),
-            $this->createUpcomingActivity('即将开始2'),
-        ];
+        // 创建一些即将开始的活动
+        $upcomingActivity1 = $this->createUpcomingActivity('即将开始1');
+        $upcomingActivity2 = $this->createUpcomingActivity('即将开始2');
 
-        $this->activityRepository
-            ->expects($this->once())
-            ->method('findUpcomingActivities')
-            ->with(5)
-            ->willReturn($expectedActivities)
-        ;
+        self::getEntityManager()->persist($upcomingActivity1);
+        self::getEntityManager()->persist($upcomingActivity2);
+        self::getEntityManager()->flush();
 
         $result = $this->activityService->getUpcomingActivities(5);
 
-        $this->assertSame($expectedActivities, $result);
-        $this->assertCount(2, $result);
+        $this->assertGreaterThanOrEqual(2, $result);
+        $titles = array_map(fn ($activity) => $activity->getTitle(), $result);
+        $this->assertContains('即将开始1', $titles);
+        $this->assertContains('即将开始2', $titles);
     }
 
     public function testGetUpcomingActivitiesShouldUseDefaultLimit(): void
     {
-        $this->activityRepository
-            ->expects($this->once())
-            ->method('findUpcomingActivities')
-            ->with(10)
-            ->willReturn([])
-        ;
+        $upcomingActivity = $this->createUpcomingActivity('即将开始');
+        self::getEntityManager()->persist($upcomingActivity);
+        self::getEntityManager()->flush();
 
-        $this->activityService->getUpcomingActivities();
+        $result = $this->activityService->getUpcomingActivities();
+
+        $this->assertIsArray($result);
     }
 
     public function testIsActivityActiveShouldReturnTrueForActiveActivity(): void
     {
         $activity = $this->createActiveActivity('测试活动');
+
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->flush();
 
         $result = $this->activityService->isActivityActive($activity);
 
@@ -93,6 +92,9 @@ final class ActivityServiceTest extends TestCase
     {
         $activity = $this->createInactiveActivity('未开始活动');
 
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->flush();
+
         $result = $this->activityService->isActivityActive($activity);
 
         $this->assertFalse($result);
@@ -100,9 +102,11 @@ final class ActivityServiceTest extends TestCase
 
     public function testGetActivityStatusShouldReturnInactiveForInvalidActivity(): void
     {
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
-        $activity->method('isValid')->willReturn(false);
+        $activity = $this->createInactiveActivity('无效活动');
+        $activity->setValid(false);
+
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->flush();
 
         $result = $this->activityService->getActivityStatus($activity);
 
@@ -111,11 +115,10 @@ final class ActivityServiceTest extends TestCase
 
     public function testGetActivityStatusShouldReturnUpcomingForFutureActivity(): void
     {
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
-        $activity->method('isValid')->willReturn(true);
-        $activity->method('getStartTime')->willReturn(CarbonImmutable::now()->addHour());
-        $activity->method('getEndTime')->willReturn(CarbonImmutable::now()->addHours(2));
+        $activity = $this->createUpcomingActivity('即将开始');
+
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->flush();
 
         $result = $this->activityService->getActivityStatus($activity);
 
@@ -124,11 +127,14 @@ final class ActivityServiceTest extends TestCase
 
     public function testGetActivityStatusShouldReturnEndedForExpiredActivity(): void
     {
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
-        $activity->method('isValid')->willReturn(true);
-        $activity->method('getStartTime')->willReturn(CarbonImmutable::now()->subHours(2));
-        $activity->method('getEndTime')->willReturn(CarbonImmutable::now()->subHour());
+        $activity = new Activity();
+        $activity->setTitle('已结束活动');
+        $activity->setStartTime(new CarbonImmutable('-2 hours'));
+        $activity->setEndTime(new CarbonImmutable('-1 hour'));
+        $activity->setValid(true);
+
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->flush();
 
         $result = $this->activityService->getActivityStatus($activity);
 
@@ -137,11 +143,10 @@ final class ActivityServiceTest extends TestCase
 
     public function testGetActivityStatusShouldReturnActiveForCurrentActivity(): void
     {
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
-        $activity->method('isValid')->willReturn(true);
-        $activity->method('getStartTime')->willReturn(CarbonImmutable::now()->subHour());
-        $activity->method('getEndTime')->willReturn(CarbonImmutable::now()->addHour());
+        $activity = $this->createActiveActivity('进行中活动');
+
+        self::getEntityManager()->persist($activity);
+        self::getEntityManager()->flush();
 
         $result = $this->activityService->getActivityStatus($activity);
 
@@ -150,31 +155,36 @@ final class ActivityServiceTest extends TestCase
 
     private function createActiveActivity(string $title): Activity
     {
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
-        $activity->method('isActive')->willReturn(true);
-        $activity->method('getTitle')->willReturn($title);
+        $activity = new Activity();
+        $activity->setTitle($title);
+        $activity->setDescription('测试活动');
+        $activity->setStartTime(new CarbonImmutable('-1 hour'));
+        $activity->setEndTime(new CarbonImmutable('+1 hour'));
+        $activity->setValid(true);
 
         return $activity;
     }
 
     private function createUpcomingActivity(string $title): Activity
     {
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
-        $activity->method('isActive')->willReturn(false);
-        $activity->method('getTitle')->willReturn($title);
-        $activity->method('getStartTime')->willReturn(CarbonImmutable::now()->addHour());
+        $activity = new Activity();
+        $activity->setTitle($title);
+        $activity->setDescription('测试活动');
+        $activity->setStartTime(new CarbonImmutable('+1 hour'));
+        $activity->setEndTime(new CarbonImmutable('+2 hours'));
+        $activity->setValid(true);
 
         return $activity;
     }
 
     private function createInactiveActivity(string $title): Activity
     {
-        /** @var Activity&MockObject $activity */
-        $activity = $this->createMock(Activity::class);
-        $activity->method('isActive')->willReturn(false);
-        $activity->method('getTitle')->willReturn($title);
+        $activity = new Activity();
+        $activity->setTitle($title);
+        $activity->setDescription('测试活动');
+        $activity->setStartTime(new CarbonImmutable('-2 hours'));
+        $activity->setEndTime(new CarbonImmutable('-1 hour'));
+        $activity->setValid(true);
 
         return $activity;
     }

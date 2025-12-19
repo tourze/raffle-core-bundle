@@ -4,6 +4,6 @@ declare(strict_types=1);
 
 namespace Tourze\RaffleCoreBundle\Exception;
 
-class InvalidParameterException extends \RuntimeException
+final class InvalidParameterException extends \RuntimeException
 {
 }

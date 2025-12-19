@@ -45,7 +45,8 @@ final class ChanceCrudControllerTest extends AbstractEasyAdminControllerTestCase
         yield 'useTime' => ['useTime'];
         yield 'status' => ['status'];
         yield 'award' => ['award'];
-        yield 'winContext' => ['winContext'];
+        // winContext 字段已移除，因为它包含 JSON 数据且难以显示
+        // yield 'winContext' => ['winContext'];
         yield 'lockVersion' => ['lockVersion'];
         yield 'createdBy' => ['createdBy'];
         yield 'updatedBy' => ['updatedBy'];

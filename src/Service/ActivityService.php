@@ -8,7 +8,7 @@ use Carbon\CarbonImmutable;
 use Tourze\RaffleCoreBundle\Entity\Activity;
 use Tourze\RaffleCoreBundle\Repository\ActivityRepository;
 
-readonly class ActivityService
+final readonly class ActivityService
 {
     public function __construct(
         private ActivityRepository $activityRepository,

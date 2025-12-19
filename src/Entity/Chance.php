@@ -35,7 +35,7 @@ class Chance implements \Stringable
     #[ORM\Column(type: Types::INTEGER, options: ['comment' => '机会ID'])]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Activity::class, inversedBy: 'chances')]
+    #[ORM\ManyToOne(targetEntity: Activity::class, inversedBy: 'chances', cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     #[Assert\NotNull(message: '活动不能为空')]
     private ?Activity $activity = null;
@@ -56,7 +56,7 @@ class Chance implements \Stringable
     #[IndexColumn]
     private ?\DateTimeImmutable $useTime = null;
 
-    #[ORM\ManyToOne(targetEntity: Award::class, inversedBy: 'chances')]
+    #[ORM\ManyToOne(targetEntity: Award::class, inversedBy: 'chances', cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: true)]
     private ?Award $award = null;
 

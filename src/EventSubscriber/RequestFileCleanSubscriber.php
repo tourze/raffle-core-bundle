@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tourze\RaffleCoreBundle\EventSubscriber;
 
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -10,7 +12,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 /**
  * 在一些比较特殊的运行环境中，我们上传并存储文件到临时目录后，系统不会自动清除一些文件的，为此我们在这里人肉处理一次
  */
-class RequestFileCleanSubscriber
+final class RequestFileCleanSubscriber
 {
     #[AsEventListener(event: KernelEvents::TERMINATE, priority: -9999)]
     public function onTerminated(TerminateEvent $event): void

@@ -15,7 +15,7 @@ use Tourze\RaffleCoreBundle\Entity\Pool;
 
 #[When(env: 'test')]
 #[When(env: 'dev')]
-class PoolFixtures extends Fixture implements DependentFixtureInterface
+final class PoolFixtures extends Fixture implements DependentFixtureInterface
 {
     public const POOL_MAIN_PRIZES = 'pool_main_prizes';
     public const POOL_CONSOLATION = 'pool_consolation';

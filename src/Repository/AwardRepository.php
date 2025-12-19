@@ -16,7 +16,7 @@ use Tourze\RaffleCoreBundle\Entity\Pool;
  * @extends ServiceEntityRepository<Award>
  */
 #[AsRepository(entityClass: Award::class)]
-class AwardRepository extends ServiceEntityRepository
+final class AwardRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {

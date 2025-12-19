@@ -14,7 +14,7 @@ use Tourze\RaffleCoreBundle\Entity\Activity;
  * @extends ServiceEntityRepository<Activity>
  */
 #[AsRepository(entityClass: Activity::class)]
-class ActivityRepository extends ServiceEntityRepository
+final class ActivityRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {

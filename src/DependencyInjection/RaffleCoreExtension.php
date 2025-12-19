@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tourze\RaffleCoreBundle\DependencyInjection;
 
 use Tourze\SymfonyDependencyServiceLoader\AutoExtension;
 
-class RaffleCoreExtension extends AutoExtension
+final class RaffleCoreExtension extends AutoExtension
 {
     protected function getConfigDir(): string
     {

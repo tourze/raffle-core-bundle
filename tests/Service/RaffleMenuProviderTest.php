@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tourze\RaffleCoreBundle\Tests\Service;
 
+use Knp\Menu\FactoryInterface;
 use Knp\Menu\ItemInterface;
+use Knp\Menu\MenuFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Tourze\EasyAdminMenuBundle\Service\LinkGeneratorInterface;
@@ -22,185 +24,93 @@ use Tourze\RaffleCoreBundle\Service\RaffleMenuProvider;
 #[RunTestsInSeparateProcesses]
 final class RaffleMenuProviderTest extends AbstractEasyAdminMenuTestCase
 {
+    private RaffleMenuProvider $menuProvider;
+
+    private FactoryInterface $menuFactory;
+
     protected function onSetUp(): void
     {
-    }
+        // 创建匿名类实现 LinkGeneratorInterface，避免使用 Mock
+        $linkGenerator = new class implements LinkGeneratorInterface {
+            public function getCurdListPage(string $entityClass): string
+            {
+                return match ($entityClass) {
+                    ActivityCrudController::class => '/admin/activity',
+                    PoolCrudController::class => '/admin/pool',
+                    AwardCrudController::class => '/admin/award',
+                    ChanceCrudController::class => '/admin/chance',
+                    default => '/admin/' . basename(str_replace('\\', '/', $entityClass)),
+                };
+            }
 
-    public function getMenuProviderServiceClass(): string
-    {
-        return RaffleMenuProvider::class;
-    }
+            public function extractEntityFqcn(string $url): ?string
+            {
+                if (preg_match('/\/admin\/(\w+)/', $url, $matches)) {
+                    return 'Tourze\\RaffleCoreBundle\\Controller\\Admin\\' . $matches[1] . 'CrudController';
+                }
 
-    public function testInvokeWithMenuItemShouldCreateRaffleMenuStructure(): void
-    {
-        $linkGenerator = $this->createMock(LinkGeneratorInterface::class);
-        $linkGenerator
-            ->expects($this->exactly(4))
-            ->method('getCurdListPage')
-            ->willReturnMap([
-                [ActivityCrudController::class, '/admin/activity'],
-                [PoolCrudController::class, '/admin/pool'],
-                [AwardCrudController::class, '/admin/award'],
-                [ChanceCrudController::class, '/admin/chance'],
-            ])
-        ;
+                return null;
+            }
 
+            public function setDashboard(string $dashboardControllerFqcn): void
+            {
+                // 空实现，测试中不需要实际功能
+            }
+        };
+
+        $this->menuFactory = new MenuFactory();
+
+        // 在容器中设置服务
         self::getContainer()->set(LinkGeneratorInterface::class, $linkGenerator);
-        $menuProvider = self::getService(RaffleMenuProvider::class);
 
-        $childMenu1 = $this->createMock(ItemInterface::class);
-        $childMenu2 = $this->createMock(ItemInterface::class);
-        $childMenu3 = $this->createMock(ItemInterface::class);
-        $childMenu4 = $this->createMock(ItemInterface::class);
-        $raffleMenu = $this->createMock(ItemInterface::class);
-
-        $parentMenuItem = $this->createMock(ItemInterface::class);
-        $parentMenuItem
-            ->expects($this->once())
-            ->method('addChild')
-            ->with('抽奖管理', [
-                'uri' => '#',
-                'attributes' => [
-                    'icon' => 'fa fa-gift',
-                ],
-            ])
-            ->willReturn($raffleMenu)
-        ;
-
-        $raffleMenu
-            ->expects($this->exactly(4))
-            ->method('addChild')
-            ->willReturnOnConsecutiveCalls($childMenu1, $childMenu2, $childMenu3, $childMenu4)
-        ;
-
-        // 配置链式调用：addChild()->setUri()->setAttribute()
-        $childMenu1
-            ->expects($this->once())
-            ->method('setUri')
-            ->with('/admin/activity')
-            ->willReturn($childMenu1) // 支持链式调用
-        ;
-        $childMenu1
-            ->expects($this->once())
-            ->method('setAttribute')
-            ->with('icon', 'fa fa-calendar-alt')
-            ->willReturn($childMenu1)
-        ;
-
-        $childMenu2
-            ->expects($this->once())
-            ->method('setUri')
-            ->with('/admin/pool')
-            ->willReturn($childMenu2) // 支持链式调用
-        ;
-        $childMenu2
-            ->expects($this->once())
-            ->method('setAttribute')
-            ->with('icon', 'fa fa-swimming-pool')
-            ->willReturn($childMenu2)
-        ;
-
-        $childMenu3
-            ->expects($this->once())
-            ->method('setUri')
-            ->with('/admin/award')
-            ->willReturn($childMenu3) // 支持链式调用
-        ;
-        $childMenu3
-            ->expects($this->once())
-            ->method('setAttribute')
-            ->with('icon', 'fa fa-trophy')
-            ->willReturn($childMenu3)
-        ;
-
-        $childMenu4
-            ->expects($this->once())
-            ->method('setUri')
-            ->with('/admin/chance')
-            ->willReturn($childMenu4) // 支持链式调用
-        ;
-        $childMenu4
-            ->expects($this->once())
-            ->method('setAttribute')
-            ->with('icon', 'fa fa-history')
-            ->willReturn($childMenu4)
-        ;
-
-        $menuProvider->__invoke($parentMenuItem);
+        $this->menuProvider = self::getService(RaffleMenuProvider::class);
     }
 
-    public function testMenuProviderShouldCreateCorrectMenuLabels(): void
+    private function createMenuItem(string $name): ItemInterface
     {
-        $linkGenerator = $this->createMock(LinkGeneratorInterface::class);
-        $linkGenerator
-            ->method('getCurdListPage')
-            ->willReturn('/mock-url')
-        ;
-
-        self::getContainer()->set(LinkGeneratorInterface::class, $linkGenerator);
-        $menuProvider = self::getService(RaffleMenuProvider::class);
-
-        $childMenu1 = $this->createMock(ItemInterface::class);
-        $childMenu1->method('setUri')->willReturn($childMenu1);
-        $childMenu1->method('setAttribute')->willReturn($childMenu1);
-
-        $childMenu2 = $this->createMock(ItemInterface::class);
-        $childMenu2->method('setUri')->willReturn($childMenu2);
-        $childMenu2->method('setAttribute')->willReturn($childMenu2);
-
-        $childMenu3 = $this->createMock(ItemInterface::class);
-        $childMenu3->method('setUri')->willReturn($childMenu3);
-        $childMenu3->method('setAttribute')->willReturn($childMenu3);
-
-        $childMenu4 = $this->createMock(ItemInterface::class);
-        $childMenu4->method('setUri')->willReturn($childMenu4);
-        $childMenu4->method('setAttribute')->willReturn($childMenu4);
-
-        $raffleMenu = $this->createMock(ItemInterface::class);
-
-        $parentMenuItem = $this->createMock(ItemInterface::class);
-        $parentMenuItem
-            ->method('addChild')
-            ->with('抽奖管理')
-            ->willReturn($raffleMenu)
-        ;
-
-        $raffleMenu
-            ->expects($this->exactly(4))
-            ->method('addChild')
-            ->willReturnOnConsecutiveCalls($childMenu1, $childMenu2, $childMenu3, $childMenu4)
-        ;
-
-        $menuProvider->__invoke($parentMenuItem);
+        return $this->menuFactory->createItem($name);
     }
 
     public function testMenuProviderShouldUseCorrectControllerClasses(): void
     {
-        $linkGenerator = $this->createMock(LinkGeneratorInterface::class);
-        $linkGenerator
-            ->expects($this->exactly(4))
-            ->method('getCurdListPage')
-            ->willReturnMap([
-                [ActivityCrudController::class, '/mock-url'],
-                [PoolCrudController::class, '/mock-url'],
-                [AwardCrudController::class, '/mock-url'],
-                [ChanceCrudController::class, '/mock-url'],
-            ])
-        ;
+        // 创建根菜单项
+        $rootMenu = $this->createMenuItem('root');
 
-        self::getContainer()->set(LinkGeneratorInterface::class, $linkGenerator);
-        $menuProvider = self::getService(RaffleMenuProvider::class);
+        // 执行菜单提供者
+        $this->menuProvider->__invoke($rootMenu);
 
-        $childMenu = $this->createMock(ItemInterface::class);
-        $childMenu->method('setUri')->willReturn($childMenu); // 支持链式调用
-        $childMenu->method('setAttribute')->willReturn($childMenu); // 支持链式调用
+        // 验证菜单已正确创建
+        $this->assertTrue($rootMenu->hasChildren());
+        $raffleMenu = $rootMenu->getChild('抽奖管理');
+        $this->assertNotNull($raffleMenu);
+        $this->assertSame('#', $raffleMenu->getUri());
+        $this->assertSame('fa fa-gift', $raffleMenu->getAttribute('icon'));
 
-        $raffleMenu = $this->createMock(ItemInterface::class);
-        $raffleMenu->method('addChild')->willReturn($childMenu);
+        // 验证子菜单项
+        $expectedMenuItems = [
+            '抽奖活动管理' => [
+                'uri' => '/admin/activity',
+                'icon' => 'fa fa-calendar-alt',
+            ],
+            '奖池管理' => [
+                'uri' => '/admin/pool',
+                'icon' => 'fa fa-swimming-pool',
+            ],
+            '奖品管理' => [
+                'uri' => '/admin/award',
+                'icon' => 'fa fa-trophy',
+            ],
+            '抽奖记录管理' => [
+                'uri' => '/admin/chance',
+                'icon' => 'fa fa-history',
+            ],
+        ];
 
-        $parentMenuItem = $this->createMock(ItemInterface::class);
-        $parentMenuItem->method('addChild')->willReturn($raffleMenu);
-
-        $menuProvider->__invoke($parentMenuItem);
+        foreach ($expectedMenuItems as $menuName => $expectedData) {
+            $menuItem = $raffleMenu->getChild($menuName);
+            $this->assertNotNull($menuItem, "Menu item '{$menuName}' should exist");
+            $this->assertSame($expectedData['uri'], $menuItem->getUri(), "URI for '{$menuName}' should be {$expectedData['uri']}");
+            $this->assertSame($expectedData['icon'], $menuItem->getAttribute('icon'), "Icon for '{$menuName}' should be {$expectedData['icon']}");
+        }
     }
 }

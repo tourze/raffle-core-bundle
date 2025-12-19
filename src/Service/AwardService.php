@@ -8,7 +8,7 @@ use Tourze\RaffleCoreBundle\Entity\Activity;
 use Tourze\RaffleCoreBundle\Entity\Award;
 use Tourze\RaffleCoreBundle\Repository\AwardRepository;
 
-readonly class AwardService
+final readonly class AwardService
 {
     public function __construct(
         private AwardRepository $awardRepository,

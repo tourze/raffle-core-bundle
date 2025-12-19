@@ -5,8 +5,6 @@ services:
     autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
     public: true
 
-  # Test-specific services can be added here
-  # For example: Mock services, Test fixtures, etc.
-
+  # Test-specific DataFixtures services
   Tourze\RaffleCoreBundle\DataFixtures\:
     resource: '../../DataFixtures/'

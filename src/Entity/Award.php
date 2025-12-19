@@ -32,12 +32,12 @@ class Award implements \Stringable
     #[ORM\Column(type: Types::INTEGER, options: ['comment' => '奖品ID'])]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Pool::class, inversedBy: 'awards')]
+    #[ORM\ManyToOne(targetEntity: Pool::class, inversedBy: 'awards', cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     #[Assert\NotNull(message: '奖池不能为空')]
     private ?Pool $pool = null;
 
-    #[ORM\ManyToOne(targetEntity: Sku::class)]
+    #[ORM\ManyToOne(targetEntity: Sku::class, cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: false)]
     #[Assert\NotNull(message: 'SKU不能为空')]
     private ?Sku $sku = null;
@@ -95,7 +95,7 @@ class Award implements \Stringable
     /**
      * @var Collection<int, Chance>
      */
-    #[ORM\OneToMany(mappedBy: 'award', targetEntity: Chance::class)]
+    #[ORM\OneToMany(mappedBy: 'award', targetEntity: Chance::class, cascade: ['persist', 'remove'])]
     private Collection $chances;
 
     public function __construct()
